@@ -1,0 +1,592 @@
+def split_phylogeny(p, level="s"):
+    """
+    Return either the full or truncated version of a QIIME-formatted taxonomy string.
+
+    :type p: str
+    :param p: A QIIME-formatted taxonomy string: k__Foo; p__Bar; ...
+
+    :type level: str
+    :param level: The different level of identification are kingdom (k), phylum (p),
+                  class (c),order (o), family (f), genus (g) and species (s). If level is
+                  not provided, the default level of identification is species.
+
+    :rtype: str
+    :return: A QIIME-formatted taxonomy string up to the classification given
+            by param level.
+    """
+    level = level+"__"
+    result = p.split(level)
+    return result[0]+level+result[1].split(";")[0]Return either the full or truncated version of a QIIME-formatted taxonomy string.
+
+    :type p: str
+    :param p: A QIIME-formatted taxonomy string: k__Foo; p__Bar; ...
+
+    :type level: str
+    :param level: The different level of identification are kingdom (k), phylum (p),
+                  class (c),order (o), family (f), genus (g) and species (s). If level is
+                  not provided, the default level of identification is species.
+
+    :rtype: str
+    :return: A QIIME-formatted taxonomy string up to the classification given
+            by param level.def ensure_dir(d):
+    """
+    Check to make sure the supplied directory path does not exist, if so, create it. The
+    method catches OSError exceptions and returns a descriptive message instead of
+    re-raising the error.
+
+    :type d: str
+    :param d: It is the full path to a directory.
+
+    :return: Does not return anything, but creates a directory path if it doesn't exist
+             already.
+    """
+    if not os.path.exists(d):
+        try:
+            os.makedirs(d)
+        except OSError as oe:
+            # should not happen with os.makedirs
+            # ENOENT: No such file or directory
+            if os.errno == errno.ENOENT:
+                msg = twdd("""One or more directories in the path ({}) do not exist. If
+                           you are specifying a new directory for output, please ensure
+                           all other directories in the path currently exist.""")
+                return msg.format(d)
+            else:
+                msg = twdd("""An error occurred trying to create the output directory
+                           ({}) with message: {}""")
+                return msg.format(d, oe.strerror)Check to make sure the supplied directory path does not exist, if so, create it. The
+    method catches OSError exceptions and returns a descriptive message instead of
+    re-raising the error.
+
+    :type d: str
+    :param d: It is the full path to a directory.
+
+    :return: Does not return anything, but creates a directory path if it doesn't exist
+             already.def file_handle(fnh, mode="rU"):
+    """
+    Takes either a file path or an open file handle, checks validity and returns an open
+    file handle or raises an appropriate Exception.
+
+    :type fnh: str
+    :param fnh: It is the full path to a file, or open file handle
+
+    :type mode: str
+    :param mode: The way in which this file will be used, for example to read or write or
+                 both. By default, file will be opened in rU mode.
+
+    :return: Returns an opened file for appropriate usage.
+    """
+    handle = None
+    if isinstance(fnh, file):
+        if fnh.closed:
+            raise ValueError("Input file is closed.")
+        handle = fnh
+    elif isinstance(fnh, str):
+        handle = open(fnh, mode)
+
+    return handleTakes either a file path or an open file handle, checks validity and returns an open
+    file handle or raises an appropriate Exception.
+
+    :type fnh: str
+    :param fnh: It is the full path to a file, or open file handle
+
+    :type mode: str
+    :param mode: The way in which this file will be used, for example to read or write or
+                 both. By default, file will be opened in rU mode.
+
+    :return: Returns an opened file for appropriate usage.def parse_unifrac(unifracFN):
+    """
+    Parses the unifrac results file into a dictionary
+
+    :type unifracFN: str
+    :param unifracFN: The path to the unifrac results file
+
+    :rtype: dict
+    :return: A dictionary with keys: 'pcd' (principle coordinates data) which is a
+             dictionary of the data keyed by sample ID, 'eigvals' (eigenvalues), and
+             'varexp' (variation explained)
+    """
+    with open(unifracFN, "rU") as uF:
+        first = uF.next().split("\t")
+        lines = [line.strip() for line in uF]
+
+    unifrac = {"pcd": OrderedDict(), "eigvals": [], "varexp": []}
+    if first[0] == "pc vector number":
+        return parse_unifrac_v1_8(unifrac, lines)
+    elif first[0] == "Eigvals":
+        return parse_unifrac_v1_9(unifrac, lines)
+    else:
+        raise ValueError("File format not supported/recognized. Please check input "
+                         "unifrac file.")Parses the unifrac results file into a dictionary
+
+    :type unifracFN: str
+    :param unifracFN: The path to the unifrac results file
+
+    :rtype: dict
+    :return: A dictionary with keys: 'pcd' (principle coordinates data) which is a
+             dictionary of the data keyed by sample ID, 'eigvals' (eigenvalues), and
+             'varexp' (variation explained)def parse_unifrac_v1_8(unifrac, file_data):
+    """
+    Function to parse data from older version of unifrac file obtained from Qiime version
+    1.8 and earlier.
+
+    :type unifrac: dict
+    :param unifracFN: The path to the unifrac results file
+
+    :type file_data: list
+    :param file_data: Unifrac data lines after stripping whitespace characters.
+    """
+    for line in file_data:
+        if line == "":
+            break
+        line = line.split("\t")
+        unifrac["pcd"][line[0]] = [float(e) for e in line[1:]]
+
+    unifrac["eigvals"] = [float(entry) for entry in file_data[-2].split("\t")[1:]]
+    unifrac["varexp"] = [float(entry) for entry in file_data[-1].split("\t")[1:]]
+    return unifracFunction to parse data from older version of unifrac file obtained from Qiime version
+    1.8 and earlier.
+
+    :type unifrac: dict
+    :param unifracFN: The path to the unifrac results file
+
+    :type file_data: list
+    :param file_data: Unifrac data lines after stripping whitespace characters.def parse_unifrac_v1_9(unifrac, file_data):
+    """
+    Function to parse data from newer version of unifrac file obtained from Qiime version
+    1.9 and later.
+
+    :type unifracFN: str
+    :param unifracFN: The path to the unifrac results file
+
+    :type file_data: list
+    :param file_data: Unifrac data lines after stripping whitespace characters.
+    """
+    unifrac["eigvals"] = [float(entry) for entry in file_data[0].split("\t")]
+    unifrac["varexp"] = [float(entry)*100 for entry in file_data[3].split("\t")]
+
+    for line in file_data[8:]:
+        if line == "":
+            break
+        line = line.split("\t")
+        unifrac["pcd"][line[0]] = [float(e) for e in line[1:]]
+    return unifracFunction to parse data from newer version of unifrac file obtained from Qiime version
+    1.9 and later.
+
+    :type unifracFN: str
+    :param unifracFN: The path to the unifrac results file
+
+    :type file_data: list
+    :param file_data: Unifrac data lines after stripping whitespace characters.def rev_c(read):
+    """
+    return reverse completment of read
+    """
+    rc = []
+    rc_nucs = {'A':'T', 'T':'A', 'G':'C', 'C':'G', 'N':'N'}
+    for base in read:
+        rc.extend(rc_nucs[base.upper()])
+    return rc[::-1]return reverse completment of readdef find_best_rsquared(list_of_fits):
+        """Return the best fit, based on rsquared"""
+        res = sorted(list_of_fits, key=lambda x: x.rsquared)
+        return res[-1]Return the best fit, based on rsquareddef relative_abundance(biomf, sampleIDs=None):
+    """
+    Calculate the relative abundance of each OTUID in a Sample.
+
+    :type biomf: A BIOM file.
+    :param biomf: OTU table format.
+
+    :type sampleIDs: list
+    :param sampleIDs: A list of sample id's from BIOM format OTU table.
+
+    :rtype: dict
+    :return: Returns a keyed on SampleIDs, and the values are dictionaries keyed on
+             OTUID's and their values represent the relative abundance of that OTUID in
+             that SampleID.
+    """
+    if sampleIDs is None:
+        sampleIDs = biomf.ids()
+    else:
+        try:
+            for sid in sampleIDs:
+                assert sid in biomf.ids()
+        except AssertionError:
+            raise ValueError(
+                "\nError while calculating relative abundances: The sampleIDs provided do"
+                " not match the sampleIDs in biom file. Please double check the sampleIDs"
+                " provided.\n")
+    otuIDs = biomf.ids(axis="observation")
+    norm_biomf = biomf.norm(inplace=False)
+
+    return {sample: {otuID: norm_biomf.get_value_by_ids(otuID, sample)
+                     for otuID in otuIDs} for sample in sampleIDs}Calculate the relative abundance of each OTUID in a Sample.
+
+    :type biomf: A BIOM file.
+    :param biomf: OTU table format.
+
+    :type sampleIDs: list
+    :param sampleIDs: A list of sample id's from BIOM format OTU table.
+
+    :rtype: dict
+    :return: Returns a keyed on SampleIDs, and the values are dictionaries keyed on
+             OTUID's and their values represent the relative abundance of that OTUID in
+             that SampleID.def mean_otu_pct_abundance(ra, otuIDs):
+    """
+    Calculate the mean OTU abundance percentage.
+
+    :type ra: Dict
+    :param ra: 'ra' refers to a dictionary keyed on SampleIDs, and the values are
+               dictionaries keyed on OTUID's and their values represent the relative
+               abundance of that OTUID in that SampleID. 'ra' is the output of
+               relative_abundance() function.
+
+    :type otuIDs: List
+    :param otuIDs: A list of OTUID's for which the percentage abundance needs to be
+                   measured.
+
+    :rtype: dict
+    :return: A dictionary of OTUID and their percent relative abundance as key/value pair.
+    """
+    sids = ra.keys()
+    otumeans = defaultdict(int)
+
+    for oid in otuIDs:
+        otumeans[oid] = sum([ra[sid][oid] for sid in sids
+                             if oid in ra[sid]]) / len(sids) * 100
+    return otumeansCalculate the mean OTU abundance percentage.
+
+    :type ra: Dict
+    :param ra: 'ra' refers to a dictionary keyed on SampleIDs, and the values are
+               dictionaries keyed on OTUID's and their values represent the relative
+               abundance of that OTUID in that SampleID. 'ra' is the output of
+               relative_abundance() function.
+
+    :type otuIDs: List
+    :param otuIDs: A list of OTUID's for which the percentage abundance needs to be
+                   measured.
+
+    :rtype: dict
+    :return: A dictionary of OTUID and their percent relative abundance as key/value pair.def MRA(biomf, sampleIDs=None, transform=None):
+    """
+    Calculate the mean relative abundance percentage.
+
+    :type biomf: A BIOM file.
+    :param biomf: OTU table format.
+
+    :type sampleIDs: list
+    :param sampleIDs: A list of sample id's from BIOM format OTU table.
+
+    :param transform: Mathematical function which is used to transform smax to another
+                      format. By default, the function has been set to None.
+
+    :rtype: dict
+    :return: A dictionary keyed on OTUID's and their mean relative abundance for a given
+             number of sampleIDs.
+    """
+    ra = relative_abundance(biomf, sampleIDs)
+    if transform is not None:
+        ra = {sample: {otuID: transform(abd) for otuID, abd in ra[sample].items()}
+              for sample in ra.keys()}
+    otuIDs = biomf.ids(axis="observation")
+    return mean_otu_pct_abundance(ra, otuIDs)Calculate the mean relative abundance percentage.
+
+    :type biomf: A BIOM file.
+    :param biomf: OTU table format.
+
+    :type sampleIDs: list
+    :param sampleIDs: A list of sample id's from BIOM format OTU table.
+
+    :param transform: Mathematical function which is used to transform smax to another
+                      format. By default, the function has been set to None.
+
+    :rtype: dict
+    :return: A dictionary keyed on OTUID's and their mean relative abundance for a given
+             number of sampleIDs.def transform_raw_abundance(biomf, fn=math.log10, sampleIDs=None, sample_abd=True):
+    """
+    Function to transform the total abundance calculation for each sample ID to another
+    format based on user given transformation function.
+
+    :type biomf: A BIOM file.
+    :param biomf: OTU table format.
+
+    :param fn: Mathematical function which is used to transform smax to another format.
+               By default, the function has been given as base 10 logarithm.
+
+    :rtype: dict
+    :return: Returns a dictionary similar to output of raw_abundance function but with
+             the abundance values modified by the mathematical operation. By default, the
+             operation performed on the abundances is base 10 logarithm.
+    """
+    totals = raw_abundance(biomf, sampleIDs, sample_abd)
+    return {sid: fn(abd) for sid, abd in totals.items()}Function to transform the total abundance calculation for each sample ID to another
+    format based on user given transformation function.
+
+    :type biomf: A BIOM file.
+    :param biomf: OTU table format.
+
+    :param fn: Mathematical function which is used to transform smax to another format.
+               By default, the function has been given as base 10 logarithm.
+
+    :rtype: dict
+    :return: Returns a dictionary similar to output of raw_abundance function but with
+             the abundance values modified by the mathematical operation. By default, the
+             operation performed on the abundances is base 10 logarithm.def print_MannWhitneyU(div_calc):
+    """
+    Compute the Mann-Whitney U test for unequal group sample sizes.
+    """
+    try:
+        x = div_calc.values()[0].values()
+        y = div_calc.values()[1].values()
+    except:
+        return "Error setting up input arrays for Mann-Whitney U Test. Skipping "\
+               "significance testing."
+    T, p = stats.mannwhitneyu(x, y)
+    print "\nMann-Whitney U test statistic:", T
+    print "Two-tailed p-value: {}".format(2 * p)Compute the Mann-Whitney U test for unequal group sample sizes.def print_KruskalWallisH(div_calc):
+    """
+    Compute the Kruskal-Wallis H-test for independent samples. A typical rule is that
+    each group must have at least 5 measurements.
+    """
+    calc = defaultdict(list)
+    try:
+        for k1, v1 in div_calc.iteritems():
+            for k2, v2 in v1.iteritems():
+                calc[k1].append(v2)
+    except:
+        return "Error setting up input arrays for Kruskal-Wallis H-Test. Skipping "\
+               "significance testing."
+    h, p = stats.kruskal(*calc.values())
+    print "\nKruskal-Wallis H-test statistic for {} groups: {}".format(str(len(div_calc)), h)
+    print "p-value: {}".format(p)Compute the Kruskal-Wallis H-test for independent samples. A typical rule is that
+    each group must have at least 5 measurements.def blastdb(fasta, maxfile = 10000000):
+    """
+    make blast db
+    """
+    db = fasta.rsplit('.', 1)[0]
+    type = check_type(fasta)
+    if type == 'nucl':
+        type = ['nhr', type]
+    else:
+        type = ['phr', type]
+    if os.path.exists('%s.%s' % (db, type[0])) is False \
+            and os.path.exists('%s.00.%s' % (db, type[0])) is False:
+        print('# ... making blastdb for: %s' % (fasta), file=sys.stderr)
+        os.system('makeblastdb \
+                -in %s -out %s -dbtype %s -max_file_sz %s >> log.txt' \
+                % (fasta, db, type[1], maxfile))
+    else:
+        print('# ... database found for: %s' % (fasta), file=sys.stderr)
+    return dbmake blast dbdef usearchdb(fasta, alignment = 'local', usearch_loc = 'usearch'):
+    """
+    make usearch db
+    """
+    if '.udb' in fasta:
+        print('# ... database found: %s' % (fasta), file=sys.stderr)
+        return fasta
+    type = check_type(fasta)
+    db = '%s.%s.udb' % (fasta.rsplit('.', 1)[0], type)
+    if os.path.exists(db) is False:
+        print('# ... making usearch db for: %s' % (fasta), file=sys.stderr)
+        if alignment == 'local':
+            os.system('%s -makeudb_ublast %s -output %s >> log.txt' % (usearch_loc, fasta, db))
+        elif alignment == 'global':
+            os.system('%s -makeudb_usearch %s -output %s >> log.txt' % (usearch_loc, fasta, db))
+    else:
+        print('# ... database found for: %s' % (fasta), file=sys.stderr)
+    return dbmake usearch dbdef _pp(dict_data):
+    """Pretty print."""
+    for key, val in dict_data.items():
+        # pylint: disable=superfluous-parens
+        print('{0:<11}: {1}'.format(key, val))Pretty print.def print_licences(params, metadata):
+    """Print licenses.
+
+    :param argparse.Namespace params: parameter
+    :param bootstrap_py.classifier.Classifiers metadata: package metadata
+    """
+    if hasattr(params, 'licenses'):
+        if params.licenses:
+            _pp(metadata.licenses_desc())
+        sys.exit(0)Print licenses.
+
+    :param argparse.Namespace params: parameter
+    :param bootstrap_py.classifier.Classifiers metadata: package metadatadef check_repository_existence(params):
+    """Check repository existence.
+
+    :param argparse.Namespace params: parameters
+    """
+    repodir = os.path.join(params.outdir, params.name)
+    if os.path.isdir(repodir):
+        raise Conflict(
+            'Package repository "{0}" has already exists.'.format(repodir))Check repository existence.
+
+    :param argparse.Namespace params: parametersdef generate_package(params):
+    """Generate package repository.
+
+    :param argparse.Namespace params: parameters
+    """
+    pkg_data = package.PackageData(params)
+    pkg_tree = package.PackageTree(pkg_data)
+    pkg_tree.generate()
+    pkg_tree.move()
+    VCS(os.path.join(pkg_tree.outdir, pkg_tree.name), pkg_tree.pkg_data)Generate package repository.
+
+    :param argparse.Namespace params: parametersdef print_single(line, rev):
+    """
+    print single reads to stderr
+    """
+    if rev is True:
+        seq = rc(['', line[9]])[1]
+        qual = line[10][::-1]
+    else:
+        seq = line[9]
+        qual = line[10]
+    fq = ['@%s' % line[0], seq, '+%s' % line[0], qual]
+    print('\n'.join(fq), file = sys.stderr)print single reads to stderrdef sort_sam(sam, sort):
+    """
+    sort sam file
+    """
+    tempdir = '%s/' % (os.path.abspath(sam).rsplit('/', 1)[0])
+    if sort is True:
+        mapping = '%s.sorted.sam' % (sam.rsplit('.', 1)[0])
+        if sam != '-':
+            if os.path.exists(mapping) is False:
+                os.system("\
+                    sort -k1 --buffer-size=%sG -T %s -o %s %s\
+                    " % (sbuffer, tempdir, mapping, sam)) 
+        else:
+            mapping = 'stdin-sam.sorted.sam'
+            p = Popen("sort -k1 --buffer-size=%sG -T %s -o %s" \
+                    % (sbuffer, tempdir, mapping), stdin = sys.stdin, shell = True) 
+            p.communicate()
+        mapping = open(mapping)
+    else:
+        if sam == '-':
+            mapping = sys.stdin
+        else:
+            mapping = open(sam)
+    return mappingsort sam filedef sub_sam(sam, percent, sort = True, sbuffer = False):
+    """
+    randomly subset sam file
+    """
+    mapping = sort_sam(sam, sort)
+    pool = [1 for i in range(0, percent)] + [0 for i in range(0, 100 - percent)]
+    c = cycle([1, 2])
+    for line in mapping:
+        line = line.strip().split()
+        if line[0].startswith('@'): # get the sam header
+            yield line
+            continue
+        if int(line[1]) <= 20: # is this from a single read?
+            if random.choice(pool) == 1:
+                yield line
+        else:
+            n = next(c)
+            if n == 1:
+                prev = line
+            if n == 2 and random.choice(pool) == 1:
+                yield prev
+                yield linerandomly subset sam filedef fq2fa(fq):
+    """
+    convert fq to fa
+    """
+    c = cycle([1, 2, 3, 4])
+    for line in fq:
+        n = next(c)
+        if n == 1:
+            seq = ['>%s' % (line.strip().split('@', 1)[1])]
+        if n == 2:
+            seq.append(line.strip())
+            yield seqconvert fq to fadef change_return_type(f):
+    """
+    Converts the returned value of wrapped function to the type of the
+    first arg or to the type specified by a kwarg key return_type's value.
+    """
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if kwargs.has_key('return_type'):
+            return_type = kwargs['return_type']
+            kwargs.pop('return_type')
+            return return_type(f(*args, **kwargs))
+        elif len(args) > 0:
+            return_type = type(args[0])
+            return return_type(f(*args, **kwargs))
+        else:
+            return f(*args, **kwargs)
+    return wrapperConverts the returned value of wrapped function to the type of the
+    first arg or to the type specified by a kwarg key return_type's value.def convert_args_to_sets(f):
+    """
+    Converts all args to 'set' type via self.setify function.
+    """
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        args = (setify(x) for x in args)
+        return f(*args, **kwargs)
+    return wrapperConverts all args to 'set' type via self.setify function.def _init_entri(self, laman):
+        """Membuat objek-objek entri dari laman yang diambil.
+
+        :param laman: Laman respons yang dikembalikan oleh KBBI daring.
+        :type laman: Response
+        """
+
+        sup = BeautifulSoup(laman.text, 'html.parser')
+        estr = ''
+        for label in sup.find('hr').next_siblings:
+            if label.name == 'hr':
+                self.entri.append(Entri(estr))
+                break
+            if label.name == 'h2':
+                if estr:
+                    self.entri.append(Entri(estr))
+                estr = ''
+            estr += str(label).strip()Membuat objek-objek entri dari laman yang diambil.
+
+        :param laman: Laman respons yang dikembalikan oleh KBBI daring.
+        :type laman: Responsedef _init_kata_dasar(self, dasar):
+        """Memproses kata dasar yang ada dalam nama entri.
+
+        :param dasar: ResultSet untuk label HTML dengan class="rootword"
+        :type dasar: ResultSet
+        """
+
+        for tiap in dasar:
+            kata = tiap.find('a')
+            dasar_no = kata.find('sup')
+            kata = ambil_teks_dalam_label(kata)
+            self.kata_dasar.append(
+                kata + ' [{}]'.format(dasar_no.text.strip()) if dasar_no else kata
+            )Memproses kata dasar yang ada dalam nama entri.
+
+        :param dasar: ResultSet untuk label HTML dengan class="rootword"
+        :type dasar: ResultSetdef serialisasi(self):
+        """Mengembalikan hasil serialisasi objek Entri ini.
+
+        :returns: Dictionary hasil serialisasi
+        :rtype: dict
+        """
+
+        return {
+            "nama": self.nama,
+            "nomor": self.nomor,
+            "kata_dasar": self.kata_dasar,
+            "pelafalan": self.pelafalan,
+            "bentuk_tidak_baku": self.bentuk_tidak_baku,
+            "varian": self.varian,
+            "makna": [makna.serialisasi() for makna in self.makna]
+        }Mengembalikan hasil serialisasi objek Entri ini.
+
+        :returns: Dictionary hasil serialisasi
+        :rtype: dictdef _makna(self):
+        """Mengembalikan representasi string untuk semua makna entri ini.
+
+        :returns: String representasi makna-makna
+        :rtype: str
+        """
+
+        if len(self.makna) > 1:
+            return '\n'.join(
+                str(i) + ". " + str(makna)
+                for i, makna in enumerate(self.makna, 1)
+            )
+        return str(self.makna[0])Mengembalikan representasi string untuk semua makna entri ini.
+
+        :returns: String representasi makna-makna
+        :rtype: str
